@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Modern Movie Booking</title>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+  <style>
+    :root {
+      --primary: #00b4d8;
+      --accent: #90e0ef;
+      --dark: #1a1a1a;
+      --light: #f1f1f1;
+    }
+
+    * { box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+
+    body {
+      margin: 0;
+      background: var(--dark);
+      color: white;
+    }
+
+    header {
+      background: #121212;
+      padding: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    header div {
+      font-size: 24px;
+      color: var(--accent);
+    }
+
+    header button {
+      background: var(--accent);
+      color: black;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+
+    .screen { display: none; padding: 20px; max-width: 900px; margin: auto; }
+    .active { display: block; }
+
+    .movies-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      justify-content: center;
+    }
+
+    .movie-card {
+      background: #222;
+      border-radius: 16px;
+      overflow: hidden;
+      width: 180px;
+      cursor: pointer;
+      transition: transform 0.3s;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    }
+
+    .movie-card img {
+      width: 100%;
+      height: 260px;
+      object-fit: cover;
+    }
+
+    .movie-card:hover { transform: scale(1.05); }
+    .movie-card p { margin: 0; padding: 12px; text-align: center; font-weight: bold; }
+
+    .month-label {
+      font-size: 22px;
+      margin-bottom: 10px;
+      color: var(--accent);
+      text-align: center;
+    }
+
+    .date-row {
+      display: flex;
+      overflow-x: auto;
+      gap: 12px;
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+    }
+
+    .date-box {
+      background: #2a2a2a;
+      border: 2px solid transparent;
+      color: #ccc;
+      padding: 10px 14px;
+      border-radius: 12px;
+      cursor: pointer;
+      min-width: 60px;
+      text-align: center;
+      transition: 0.2s;
+      flex-shrink: 0;
+    }
+
+    .date-box:hover { border-color: var(--accent); }
+    .date-box.active {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+    }
+
+    .time-slots {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 12px;
+      margin-top: 10px;
+    }
+
+    .time-slot {
+      background: #2d2d2d;
+      color: #ddd;
+      padding: 10px 18px;
+      border-radius: 12px;
+      cursor: pointer;
+      border: 2px solid transparent;
+      font-size: 15px;
+      transition: 0.2s;
+    }
+
+    .time-slot:hover { border-color: var(--accent); }
+    .time-slot.active {
+      background: var(--accent);
+      color: black;
+    }
+
+    .screen-label {
+      text-align: center;
+      color: var(--accent);
+      margin: 15px 0 10px;
+      font-weight: bold;
+    }
+
+    .seat-map {
+      display: grid;
+      grid-template-columns: repeat(10, 1fr);
+      gap: 6px;
+      margin: 10px 0 20px;
+    }
+
+    .seat {
+      padding-top: 100%;
+      position: relative;
+      background: #444;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    .seat::after {
+      content: attr(data-seat);
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 11px;
+      color: white;
+    }
+
+    .seat.selected { background: white; color: black; }
+    .seat.booked::after { content: '✓'; color: #00ff00; font-weight: bold; }
+    .seat.selected::after { content: '✗'; color: white; font-weight: bold; }
+
+    .seat.silver { background: #adb5bd; }
+    .seat.gold { background: #ffd700; }
+    .seat.platinum { background: #8a2be2; }
+
+    .summary { text-align: center; }
+
+    button {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 14px 24px;
+      border-radius: 10px;
+      font-size: 16px;
+      cursor: pointer;
+      margin: 10px 5px;
+      transition: background 0.2s;
+    }
+
+    button:hover { background: #0077b6; }
+
+    .ticket {
+      background: #fff;
+      color: #000;
+      padding: 20px;
+      border-radius: 20px;
+      max-width: 800px;
+      margin: 30px auto;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+    }
+
+    .ticket-details {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+
+    .ticket-left { flex: 2; min-width: 220px; }
+    .ticket-right { flex: 1; max-width: 160px; }
+    .ticket-right img { width: 100%; border-radius: 12px; object-fit: cover; }
+    .qr { margin-top: 20px; text-align: center; }
+
+    @media (max-width: 600px) {
+      .movie-card { width: 45%; }
+      .time-slot { font-size: 13px; padding: 8px 14px; }
+      button { font-size: 14px; padding: 10px 20px; }
+      .ticket-left p { font-size: 15px; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div>🎬 Modern Movie Ticket Booking</div>
+    <button onclick="showMyBookings()">🎟 My Bookings</button>
+  </header>
+
+  <div class="screen active" id="screen1">
+    <div class="movies-grid" id="movieList"></div>
+  </div>
+
+  <div class="screen" id="screen2">
+    <button onclick="showScreen(1)">🔙 Back</button>
+    <div id="movieDetailsBox" style="margin-bottom: 20px; color: #fff;"></div>
+    <div class="month-label" id="monthLabel"></div>
+    <div class="date-row" id="dateRow"></div>
+    <div id="timeSlotContainer"></div>
+    <div id="seatSection" style="display:none;">
+      <div class="screen-label">📽 Screen This Side</div>
+      <div id="priceLabels" style="color: #ccc; text-align:center; margin: 10px 0;"></div>
+      <div class="seat-map" id="seatMap"></div>
+      <div class="summary">
+        <p><strong>Selected:</strong> <span id="selectedSeats">None</span></p>
+        <p><strong>Total:</strong> ₹<span id="totalPrice">0</span></p>
+        <button onclick="goToTicket()">Confirm Booking</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="screen" id="screen3">
+    <button onclick="showScreen(2)">🔙 Back</button>
+    <div class="ticket" id="ticketBox">
+      <div class="ticket-details">
+        <div class="ticket-left">
+          <h2>🎫 Ticket Confirmed</h2>
+          <p><strong>Movie:</strong> <span id="tMovie"></span></p>
+          <p><strong>Year:</strong> <span id="tYear"></span></p>
+          <p><strong>Likes:</strong> <span id="tLikes"></span></p>
+          <p><strong>Date:</strong> <span id="tDate"></span></p>
+          <p><strong>Time:</strong> <span id="tTime"></span></p>
+          <p><strong>Seats:</strong> <span id="tSeats"></span></p>
+          <p><strong>Total Paid:</strong> ₹<span id="tTotal"></span></p>
+          <p><strong>Booking ID:</strong> #<span id="tID"></span></p>
+        </div>
+        <div class="ticket-right">
+          <img id="ticketPoster" src="" alt="Poster" />
+        </div>
+      </div>
+      <div class="qr"><canvas id="qrCanvas"></canvas></div>
+    </div>
+    <div style="text-align:center; margin-top:20px;">
+      <button onclick="shareTicket()">📤 Share Ticket</button>
+      <button onclick="downloadTicket()">📥 Download Ticket</button>
+      <button onclick="location.reload()">🔄 Book Another</button>
+    </div>
+  </div>
+
+  <div class="screen" id="screen4">
+    <button onclick="showScreen(1)">🔙 Back</button>
+    <h2 style="text-align:center; color: var(--accent); margin-top: 20px;">🎟 My Bookings</h2>
+    <div id="bookingHistory" style="margin-top: 20px;"></div>
+  </div>
+<script>
+const movies = [
+  {
+    name: "Inception",
+    year: 2010,
+    likes: "❤️ 2.3M",
+    story: "A skilled thief leads a team into dreams to steal secrets — or plant ideas. A mind-bending thriller by Christopher Nolan.",
+    img: "https://m.media-amazon.com/images/I/51zUbui+gbL._AC_SY679_.jpg",
+    trailer: "https://www.youtube.com/embed/8hP9D6kZseM"
+  },
+  {
+    name: "Avengers: Endgame",
+    year: 2019,
+    likes: "❤️ 5.1M",
+    story: "The Avengers assemble once more to reverse Thanos's snap and restore balance to the universe in this epic finale.",
+    img: "https://m.media-amazon.com/images/I/81ExhpBEbHL._AC_SY679_.jpg",
+    trailer: "https://www.youtube.com/embed/TcMBFSGVi1c"
+  },
+  {
+    name: "Devara",
+    year: 2024,
+    likes: "❤️ 320K",
+    story: "A fierce leader rises to protect his people against tyranny. Starring Jr NTR in an intense mass-action drama.",
+    img: "1.jpeg",
+    trailer: "https://www.youtube.com/embed/T_Oe1vz-kNw"
+  },
+  {
+    name: "RRR",
+    year: 2022,
+    likes: "❤️ 4.9M",
+    story: "Two legendary revolutionaries and their journey far away from home before they started fighting for their country.",
+    img: "https://upload.wikimedia.org/wikipedia/en/d/d7/RRR_Poster.jpg",
+    trailer: "https://www.youtube.com/embed/f_vbAtFSEc0"
+  },
+];
+
+const timeSlots = ["11–2", "2:30–5:30", "6–9", "9:30–12:30"];
+let selectedMovie = null, selectedDate = "", selectedTime = "", selectedSeats = [];
+
+// ✅ Load booked seats from localStorage
+let bookedSeatsMap = JSON.parse(localStorage.getItem("bookedSeats") || "{}");
+
+const movieList = document.getElementById("movieList");
+movies.forEach(movie => {
+  const div = document.createElement("div");
+  div.className = "movie-card";
+  div.innerHTML = `<img src="${movie.img}" /><p>${movie.name}</p>`;
+  div.onclick = () => {
+    selectedMovie = movie;
+    showScreen(2);
+    loadDates();
+    document.getElementById("movieDetailsBox").innerHTML = `
+      <h2 style="color: var(--accent); margin-bottom: 10px;">🎬 ${movie.name}</h2>
+      <p><strong>Year:</strong> ${movie.year} &nbsp; | &nbsp; <strong>Likes:</strong> ${movie.likes}</p>
+      <p>${movie.story}</p>
+      <div style="margin-top: 15px;">
+        <iframe width="100%" height="250" src="${movie.trailer}" frameborder="0" allowfullscreen></iframe>
+      </div>`;
+  };
+  movieList.appendChild(div);
+});
+
+function showScreen(n) {
+  document.querySelectorAll(".screen").forEach((el, i) => el.classList.toggle("active", i === n - 1));
+}
+
+function loadDates() {
+  const dateRow = document.getElementById("dateRow");
+  const monthLabel = document.getElementById("monthLabel");
+  dateRow.innerHTML = "";
+  document.getElementById("timeSlotContainer").innerHTML = "";
+  const today = new Date();
+  const month = today.toLocaleString('default', { month: 'long' });
+  monthLabel.innerText = month;
+
+  for (let i = 0; i < 7; i++) {
+    const date = new Date();
+    date.setDate(today.getDate() + i);
+    const day = date.getDate();
+    const dateStr = date.toISOString().split("T")[0];
+    const box = document.createElement("div");
+    box.className = "date-box";
+    box.innerText = day;
+    box.onclick = () => {
+      selectedDate = dateStr;
+      selectedTime = "";
+      selectedSeats = [];
+      document.getElementById("seatSection").style.display = "none";
+      document.getElementById("selectedSeats").innerText = "None";
+      document.getElementById("totalPrice").innerText = "0";
+      document.querySelectorAll(".date-box").forEach(d => d.classList.remove("active"));
+      box.classList.add("active");
+      loadTimes();
+    };
+    dateRow.appendChild(box);
+  }
+}
+
+function loadTimes() {
+  const container = document.getElementById("timeSlotContainer");
+  container.innerHTML = "";
+  const row = document.createElement("div");
+  row.className = "time-slots";
+  timeSlots.forEach(slot => {
+    const btn = document.createElement("div");
+    btn.className = "time-slot";
+    btn.innerText = slot;
+    btn.onclick = () => {
+      selectedTime = slot;
+      document.querySelectorAll(".time-slot").forEach(t => t.classList.remove("active"));
+      btn.classList.add("active");
+      renderSeats();
+      document.getElementById("seatSection").style.display = "block";
+    };
+    row.appendChild(btn);
+  });
+  container.appendChild(row);
+}
+
+function renderSeats() {
+  const seatMap = document.getElementById("seatMap");
+  seatMap.innerHTML = '';
+  document.getElementById("priceLabels").innerHTML = `
+    <p>💺 <span style="color:#adb5bd;">Silver ₹80</span> &nbsp; 
+    <span style="color:#ffd700;">Gold ₹100</span> &nbsp; 
+    <span style="color:#8a2be2;">Platinum ₹150</span></p>
+  `;
+  selectedSeats = [];
+  const key = `${selectedMovie.name}|${selectedDate}|${selectedTime}`;
+  const booked = bookedSeatsMap[key] || [];
+  const rows = [
+    { row: 'A', type: 'silver' }, { row: 'B', type: 'silver' }, { row: 'C', type: 'silver' },
+    { row: 'D', type: 'gold' }, { row: 'E', type: 'gold' },
+    { row: 'F', type: 'platinum' }, { row: 'G', type: 'platinum' }, { row: 'H', type: 'platinum' },
+  ];
+
+  rows.forEach(({ row, type }) => {
+    for (let i = 1; i <= 10; i++) {
+      const code = row + i;
+      const div = document.createElement("div");
+      div.className = `seat ${type}`;
+      div.dataset.seat = code;
+      div.dataset.type = type;
+
+      if (booked.includes(code)) {
+        div.classList.add("booked");
+      } else {
+        div.onclick = () => toggleSeat(div, code);
+      }
+
+      seatMap.appendChild(div);
+    }
+  });
+}
+
+function toggleSeat(el, code) {
+  if (el.classList.contains("selected")) {
+    el.classList.remove("selected");
+    selectedSeats = selectedSeats.filter(s => s !== code);
+  } else {
+    el.classList.add("selected");
+    selectedSeats.push(code);
+  }
+  updateTotal();
+}
+
+function updateTotal() {
+  let total = 0;
+  selectedSeats.forEach(seat => {
+    const row = seat[0];
+    total += ['A','B','C'].includes(row) ? 80 : ['D','E'].includes(row) ? 100 : 150;
+  });
+  document.getElementById("selectedSeats").innerText = selectedSeats.join(", ") || "None";
+  document.getElementById("totalPrice").innerText = total;
+}
+
+function goToTicket() {
+  if (!selectedMovie || !selectedDate || !selectedTime || selectedSeats.length === 0)
+    return alert("Please complete all selections.");
+
+  const key = `${selectedMovie.name}|${selectedDate}|${selectedTime}`;
+
+  // ✅ Save new booked seats to localStorage
+  const allBooked = JSON.parse(localStorage.getItem("bookedSeats") || "{}");
+  allBooked[key] = [...(allBooked[key] || []), ...selectedSeats];
+  localStorage.setItem("bookedSeats", JSON.stringify(allBooked));
+  bookedSeatsMap[key] = allBooked[key]; // update in-memory
+
+  const total = document.getElementById("totalPrice").innerText;
+  const id = Math.floor(100000 + Math.random() * 900000);
+  document.getElementById("tMovie").innerText = selectedMovie.name;
+  document.getElementById("tDate").innerText = selectedDate;
+  document.getElementById("tTime").innerText = selectedTime;
+  document.getElementById("tSeats").innerText = selectedSeats.join(", ");
+  document.getElementById("tTotal").innerText = total;
+  document.getElementById("tID").innerText = id;
+  document.getElementById("ticketPoster").src = selectedMovie.img;
+  document.getElementById("tYear").innerText = selectedMovie.year;
+  document.getElementById("tLikes").innerText = selectedMovie.likes;
+
+  QRCode.toCanvas(document.getElementById("qrCanvas"), JSON.stringify({
+    movie: selectedMovie.name,
+    date: selectedDate,
+    time: selectedTime,
+    seats: selectedSeats,
+    total,
+    id
+  }));
+
+  saveBookingToLocal({
+    movie: selectedMovie.name,
+    year: selectedMovie.year,
+    likes: selectedMovie.likes,
+    img: selectedMovie.img,
+    date: selectedDate,
+    time: selectedTime,
+    seats: selectedSeats.join(", "),
+    total,
+    id
+  });
+
+  showScreen(3);
+}
+
+function saveBookingToLocal(data) {
+  const prev = JSON.parse(localStorage.getItem("myBookings") || "[]");
+  prev.push(data);
+  localStorage.setItem("myBookings", JSON.stringify(prev));
+}
+
+function showMyBookings() {
+  showScreen(4);
+  const container = document.getElementById("bookingHistory");
+  container.innerHTML = "";
+  const bookings = JSON.parse(localStorage.getItem("myBookings") || "[]").reverse();
+
+  if (bookings.length === 0) {
+    container.innerHTML = "<p style='text-align:center;'>No bookings found.</p>";
+    return;
+  }
+
+  bookings.forEach(b => {
+    const div = document.createElement("div");
+    div.className = "ticket";
+    div.innerHTML = `
+      <div class="ticket-details">
+        <div class="ticket-left">
+          <h3>🎟 ${b.movie}</h3>
+          <p><strong>Year:</strong> ${b.year}</p>
+          <p><strong>Likes:</strong> ${b.likes}</p>
+          <p><strong>Date:</strong> ${b.date}</p>
+          <p><strong>Time:</strong> ${b.time}</p>
+          <p><strong>Seats:</strong> ${b.seats}</p>
+          <p><strong>Total:</strong> ₹${b.total}</p>
+          <p><strong>ID:</strong> #${b.id}</p>
+        </div>
+        <div class="ticket-right">
+          <img src="${b.img}" alt="Poster" />
+        </div>
+      </div>
+      <div class="qr" id="qr-${b.id}"></div>
+    `;
+    container.appendChild(div);
+    QRCode.toCanvas(document.getElementById(`qr-${b.id}`), JSON.stringify(b));
+  });
+}
+
+function shareTicket() {
+  const text = `🎬 Movie: ${selectedMovie.name}\n📅 Date: ${selectedDate}\n⏰ Time: ${selectedTime}\n💺 Seats: ${selectedSeats.join(", ")}\n💰 Total: ₹${document.getElementById("totalPrice").innerText}`;
+  if (navigator.share) {
+    navigator.share({ title: "Movie Ticket", text });
+  } else {
+    alert("Sharing not supported on this device.");
+  }
+}
+
+function downloadTicket() {
+  html2canvas(document.getElementById("ticketBox")).then(canvas => {
+    const a = document.createElement("a");
+    a.href = canvas.toDataURL();
+    a.download = "ticket.png";
+    a.click();
+  });
+}
+</script>
+
+  
+</body>
+</html>
